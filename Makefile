@@ -1,13 +1,15 @@
-VERSION         := 0.13
-DKMS_ROOT_PATH  := /usr/src/msi_ec-$(VERSION)
-KERNELRELEASE   ?= $(shell uname -r)
-KMOD_DIR        := /lib/modules/$(KERNELRELEASE)/updates/drivers/platform/x86
+_SRC := $(if $(src),$(src),.)
+include $(_SRC)/Makefile.vars # AKMOD can be annoying so preventing his silent context change
 
+DKMS_ROOT_PATH  := /usr/src/msi_ec-$(VERSION)
+
+KERNELRELEASE := $(shell uname -r)
+
+KMOD_DIR        := /lib/modules/$(KERNELRELEASE)/updates/drivers/platform/x86
 
 ccflags-y := -std=gnu11 -Wno-declaration-after-statement
 
-obj-m += msi-ec.o
-
+obj-m += $(MODNAME).o
 
 all: modules
 
@@ -49,6 +51,7 @@ dkms-install:
 	mkdir -p $(DKMS_ROOT_PATH)
 	cp $(CURDIR)/dkms.conf $(DKMS_ROOT_PATH)
 	cp $(CURDIR)/Makefile $(DKMS_ROOT_PATH)
+	cp $(CURDIR)/Makefile.vars $(DKMS_ROOT_PATH)
 	cp $(CURDIR)/msi-ec.c $(DKMS_ROOT_PATH)
 	cp $(CURDIR)/ec_memory_configuration.h $(DKMS_ROOT_PATH)
 
@@ -61,8 +64,13 @@ dkms-install:
 	echo msi-ec > /etc/modules-load.d/msi-ec.conf
 
 dkms-uninstall:
-	dkms remove msi_ec/$(VERSION) --all
+	bash universalDKMSModuleUninstaller.sh
 	rm -rf $(DKMS_ROOT_PATH)
 	rm -f /etc/modules-load.d/msi-ec.conf
 
+dkms-update: dkms-uninstall dkms-install
+
 dev: modules unload load
+
+rpm:
+	$(MAKE) -C packaging/rpm-akmod/ srpm
